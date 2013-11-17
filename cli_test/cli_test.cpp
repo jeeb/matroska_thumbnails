@@ -249,12 +249,9 @@ int main(int argc, char **argv)
     int      dst_linesize[4] = { 0 };
 
     // The linesize is padded to the next 4 byte alignment
-    int how_much_over = dst_width % 4;
-    if (how_much_over) {
-        dst_linesize[0] = dst_width + (4 - how_much_over);
-    } else {
-        dst_linesize[0] = dst_width;
-    }
+    // But we have four values next to each other so we
+    // don't care
+    dst_linesize[0] = dst_width * 4;
 
     fprintf(stderr, "Linesize: %d\n", dst_linesize[0]);
 
