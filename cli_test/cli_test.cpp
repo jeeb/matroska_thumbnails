@@ -86,8 +86,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    fprintf(stderr, "Success: Opened output file %s\n", argv[2]);
-
     // Register all formats etc.
     av_register_all();
 
