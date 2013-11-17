@@ -127,30 +127,33 @@ int main(int argc, char **argv)
 
         fprintf(stderr, "Success: A frame of data has been read from the input\n");
 
-        // Video decoders always consume the whole packet, so we don't have to check for that
-        ret = avcodec_decode_video2(decoder_context, frame, &can_has_picture, &packet);
-        if (ret < 0) {
-            fprintf(stderr, "Failed to decode video :<\n");
-            return 1;
-        }
+        if (packet.stream_index == stream_index) {
+            // Video decoders always consume the whole packet, so we don't have to check for that
+            ret = avcodec_decode_video2(decoder_context, frame, &can_has_picture, &packet);
+            if (ret < 0) {
+                fprintf(stderr, "Failed to decode video :<\n");
+                return 1;
+            }
 
-        fprintf(stderr, "Success: A frame of data has been decoded\n");
+            fprintf(stderr, "Success: A frame of data has been decoded\n");
+        }
 
         av_free_packet(&packet);
     }
 
     fprintf(stderr, "Success: A whole picture has been decoded\n");
-
-    fprintf(stderr, "SAR: %d:%d\n", frame->sample_aspect_ratio.num, frame->sample_aspect_ratio.den);
+    AVRational guessed_sar = av_guess_sample_aspect_ratio(lavf_context, stream, frame);
+    fprintf(stderr, "Stream SAR: %d:%d\n", frame->sample_aspect_ratio.num, frame->sample_aspect_ratio.den);
+    fprintf(stderr, "Guessed SAR: %d:%d\n", guessed_sar.num, guessed_sar.den);
 
     int dst_width  = 0;
     int dst_height = 0;
 
-    if (frame->sample_aspect_ratio.num > frame->sample_aspect_ratio.den) {
-        dst_width  = (frame->width * frame->sample_aspect_ratio.num) / frame->sample_aspect_ratio.den;
+    if (guessed_sar.num > guessed_sar.den) {
+        dst_width  = (frame->width * guessed_sar.num) / guessed_sar.den;
         dst_height = frame->height;
     } else {
-        dst_height = (frame->height * frame->sample_aspect_ratio.den) / frame->sample_aspect_ratio.num;
+        dst_height = (frame->height * guessed_sar.den) / guessed_sar.num;
         dst_width  = frame->width;
     }
 
