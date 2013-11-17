@@ -141,6 +141,20 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Success: A whole picture has been decoded\n");
 
+    fprintf(stderr, "SAR: %d:%d\n", frame->sample_aspect_ratio.num, frame->sample_aspect_ratio.den);
+
+    int dst_width  = 0;
+    int dst_height = 0;
+
+    if (frame->sample_aspect_ratio.num > frame->sample_aspect_ratio.den) {
+        dst_width  = (frame->width * frame->sample_aspect_ratio.num) / frame->sample_aspect_ratio.den;
+        dst_height = frame->height;
+    } else {
+        dst_height = (frame->height * frame->sample_aspect_ratio.den) / frame->sample_aspect_ratio.num;
+        dst_width  = frame->width;
+    }
+
+    fprintf(stderr, "DSTWidth: %d , DSTHeight: %d\n", dst_width, dst_height);
     /*
     // Allocate an AVPicture for the RGB version
     AVPicture pic;
@@ -154,7 +168,7 @@ int main(int argc, char **argv)
     uint8_t *dst_data[4];
     int dst_linesize[4];
 
-    ret = av_image_alloc(dst_data, dst_linesize, frame->width, frame->height, AV_PIX_FMT_RGBA, 1);
+    ret = av_image_alloc(dst_data, dst_linesize, dst_width, dst_height, AV_PIX_FMT_RGBA, 1);
     if (ret < 0) {
         fprintf(stderr, "Failed to allocate the output RGB picture :<\n");
         return 1;
@@ -165,7 +179,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "Success: The output RGB picture has been allocated\n");
 
     SwsContext *swscale_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format,
-                                                 frame->width, frame->height, AV_PIX_FMT_RGBA,
+                                                 dst_width, dst_height, AV_PIX_FMT_RGBA,
                                                  SWS_BICUBIC, NULL, NULL, NULL);
     if (!swscale_context) {
         fprintf(stderr, "Failed to create the swscale context for the YCbCr->RGB conversion\n");
