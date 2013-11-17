@@ -189,7 +189,7 @@ int main(int argc, char **argv)
     // Convert!
     ret = sws_scale(swscale_context, frame->data, frame->linesize, 0,
                     frame->height, dst_data, dst_linesize);
-    if (ret != frame->height) {
+    if (ret != dst_height) {
         fprintf(stderr, "Failed to gain as much height as with the input when scaling\n");
         return 1;
     }
