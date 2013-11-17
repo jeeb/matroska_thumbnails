@@ -279,7 +279,7 @@ int main(int argc, char **argv)
 
     SwsContext *swscale_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format,
                                                  dst_width, dst_height, AV_PIX_FMT_RGB32,
-                                                 SWS_BILINEAR, NULL, NULL, NULL);
+                                                 SWS_BICUBIC, NULL, NULL, NULL);
     if (!swscale_context) {
         fprintf(stderr, "Failed to create the swscale context for the YCbCr->RGB conversion\n");
         return 1;
