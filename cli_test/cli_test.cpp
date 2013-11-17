@@ -81,10 +81,11 @@ void SaveBitmap(char *szFilename, HBITMAP hBitmap)
 
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s input_file output_file\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s input_file output_file max_width_or_height\n", argv[0]);
         return 1;
     }
+    int size_limit = atoi(argv[3]);
 
     // Register all formats etc.
     av_register_all();
@@ -218,18 +219,16 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "DSTWidth: %d , DSTHeight: %d\n", dst_width, dst_height);
 
-#define LIMITED_SIZE 128
-
-    // Fit the thing into 32x32 (smallest thumbnail size)
+    // Fit the thing into size_limit
     if (dst_width > dst_height) {
         double ratio = (double)dst_height / (double)dst_width;
-        dst_width = LIMITED_SIZE;
-        dst_height = (int)((ratio * (double)LIMITED_SIZE) + 0.5);
+        dst_width = size_limit;
+        dst_height = (int)((ratio * (double)size_limit) + 0.5);
     }
     else {
         double ratio = (double)dst_width / (double)dst_height;
-        dst_height = LIMITED_SIZE;
-        dst_width = (int)((ratio * (double)LIMITED_SIZE) + 0.5);
+        dst_height = size_limit;
+        dst_width = (int)((ratio * (double)size_limit) + 0.5);
     }
 
     fprintf(stderr, "DSTWidth: %d , DSTHeight: %d (post-fitting)\n", dst_width, dst_height);
