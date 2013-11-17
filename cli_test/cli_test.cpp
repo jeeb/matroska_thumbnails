@@ -114,46 +114,30 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Success: AVPacket created and initialized\n");
 
-    // Go grab a "frame" from the file!
-    ret = av_read_frame(lavf_context, &packet);
-    if (ret < 0) {
-        fprintf(stderr, "Failed to read a frame of data from the input\n");
-        return 1;
-    }
-
-    fprintf(stderr, "Success: A frame of data has been read from the input\n");
-
-    // Try decoding until we can has a picture
+    // A marker for if we already have a decoded picture
     int can_has_picture = 0;
-    int bytes_decoded = 0;
-    do {
-        AVPacket orig_packet = packet;
 
-        while (packet.size > 0 && !can_has_picture) {
-            ret = avcodec_decode_video2(decoder_context, frame, &can_has_picture, &packet);
-            if (ret < 0) {
-                fprintf(stderr, "Failed to decode video :<");
-                return 1;
-            }
-
-            fprintf(stderr, "Success: Video has been decoded\n");
-
-            // Some things overread, but in reality just the packet is read
-            bytes_decoded = FFMIN(ret, packet.size);
-
-            packet.data += bytes_decoded;
-            packet.size -= bytes_decoded;
+    while (!can_has_picture) {
+        // Go grab a "frame" from the file!
+        ret = av_read_frame(lavf_context, &packet);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to read a frame of data from the input :<\n");
+            return 1;
         }
 
-        if (!can_has_picture) {
-            av_free_packet(&orig_packet);
-            ret = av_read_frame(lavf_context, &packet);
-            if (ret < 0) {
-                fprintf(stderr, "Failed to read more data\n");
-                return 1;
-            }
+        fprintf(stderr, "Success: A frame of data has been read from the input\n");
+
+        // Video decoders always consume the whole packet, so we don't have to check for that
+        ret = avcodec_decode_video2(decoder_context, frame, &can_has_picture, &packet);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to decode video :<\n");
+            return 1;
         }
-    } while (!can_has_picture);
+
+        fprintf(stderr, "Success: A frame of data has been decoded\n");
+
+        av_free_packet(&packet);
+    }
 
     fprintf(stderr, "Success: A whole picture has been decoded\n");
 
