@@ -86,15 +86,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    /*
-    FILE *dst_file;
-    dst_file = fopen(argv[2], "wb");
-    if (!dst_file) {
-    fprintf(stderr, "Failed to open output file %s\n", argv[2]);
-    return 1;
-    }
-    */
-
     fprintf(stderr, "Success: Opened output file %s\n", argv[2]);
 
     // Register all formats etc.
@@ -307,11 +298,6 @@ int main(int argc, char **argv)
     fprintf(stderr, "Success: Picture has been scaled\n");
 
     SaveBitmap(argv[2], dst_bitmap);
-
-    //fwrite(dst_data[0], 1, dst_image_size, dst_file);
-    //fclose(dst_file);
-
-    // I think we're done? Add resizing to aspect ratio and that's it?
 
     // We don't need the stinking screen
     ReleaseDC(NULL, hdc);
