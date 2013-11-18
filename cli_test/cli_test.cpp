@@ -396,7 +396,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "Success: The output RGB picture has been allocated\n");
 
     SwsContext *swscale_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format,
-                                                 dst_width, dst_height, AV_PIX_FMT_RGB32,
+                                                 dst_width, dst_height, AV_PIX_FMT_BGRA,
                                                  SWS_BICUBIC, NULL, NULL, NULL);
     if (!swscale_context) {
         fprintf(stderr, "Failed to create the swscale context for the YCbCr->RGB conversion\n");
