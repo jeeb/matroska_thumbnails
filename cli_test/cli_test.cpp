@@ -8,6 +8,9 @@
 #include <windows.h>
 #include <wingdi.h>
 
+// IStream stuff
+#include <shlwapi.h>
+
 extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavformat/avformat.h>
@@ -79,6 +82,87 @@ void SaveBitmap(char *szFilename, HBITMAP hBitmap)
     if (fp)      fclose(fp);
 }
 
+static int read_packet(void *opaque, uint8_t *buf, int buf_size)
+{
+    IStream *istream = (IStream *)opaque;
+
+    HRESULT hr         = E_UNEXPECTED;
+    ULONG   read_bytes = 0;
+
+    hr = istream->Read(buf, buf_size, &read_bytes);
+    if (FAILED(hr)) {
+        fprintf(stderr, "IStreamIO Read: Failed to read %d bytes\n", buf_size);
+        return -1;
+    }
+
+    fprintf(stderr, "IStreamIO Read: Succeeded at reading %lu bytes out of %d\n", read_bytes, buf_size);
+    return read_bytes;
+}
+
+static int64_t seek(void *opaque, int64_t offset, int whence)
+{
+    IStream *istream = (IStream *)opaque;
+
+    STATSTG stream_stats;
+    HRESULT hr       = E_UNEXPECTED;
+    DWORD   seekmode = STREAM_SEEK_CUR;
+
+    // Seek positions
+    ULARGE_INTEGER pos_before_seek;
+    ULARGE_INTEGER pos_after_seek;
+
+    LARGE_INTEGER zero;
+    zero.QuadPart = 0;
+
+    // Because MS decided to use LARGE_INTEGER...
+    LARGE_INTEGER seek_offset;
+    seek_offset.QuadPart = offset;
+
+    // Grab current position
+    hr = istream->Seek(zero, STREAM_SEEK_CUR, &pos_before_seek);
+    if (FAILED(hr)) {
+        fprintf(stderr, "IStreamIO Seek: Failed to get current position :<\n");
+        return -1;
+    }
+
+    switch (whence) {
+    // Try using the stat thingy to grab the stream's size
+    case AVSEEK_SIZE:
+        hr = istream->Stat(&stream_stats, STATFLAG_NONAME);
+        if (SUCCEEDED(hr)) {
+            fprintf(stderr, "IStreamIO Seek: Succeeded at getting the stream size (reported value %llu)\n", stream_stats.cbSize.QuadPart);
+            return stream_stats.cbSize.QuadPart;
+        } else {
+            fprintf(stderr, "IStreamIO Seek: Failed to get the stream size :<\n");
+            return -1;
+        }
+        break;
+    case SEEK_SET:
+        seekmode = STREAM_SEEK_SET;
+        break;
+    case SEEK_CUR:
+        seekmode = STREAM_SEEK_CUR;
+        break;
+    case SEEK_END:
+        seekmode = STREAM_SEEK_END;
+        break;
+    default:
+        break;
+    }
+
+    // Try actually seeking
+    hr = istream->Seek(seek_offset, seekmode, &pos_after_seek);
+    if (FAILED(hr)) {
+        fprintf(stderr, "IStreamIO Seek: Actual seek failed :<\n");
+        return -1;
+    }
+
+    // Return the difference in positions
+    return pos_after_seek.QuadPart - pos_before_seek.QuadPart;
+}
+
+#define CLI_TEST_BUFFER_SIZE 8192
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -86,6 +170,8 @@ int main(int argc, char **argv)
         return 1;
     }
     int size_limit = atoi(argv[3]);
+
+    HRESULT hr = E_FAIL;
 
     // Register all formats etc.
     av_register_all();
@@ -99,8 +185,35 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Success: lavf context\n");
 
+    // We need a wchar version of the input file name for IStream
+    wchar_t *wide_input_file = L"lav_tep_jitter.vob";
+    fwprintf(stderr, L"Wide input file: %ls\n", wide_input_file);
+
+    // Create an IStream that doesn't create files
+    IStream *istream = nullptr;
+    hr = SHCreateStreamOnFileEx(wide_input_file, STGM_FAILIFTHERE, FILE_ATTRIBUTE_NORMAL, FALSE, nullptr, &istream);
+    if (FAILED(hr)) {
+        fprintf(stderr, "Failed to create the IStream :<\n");
+        return 1;
+    }
+
+    fprintf(stderr, "Success: IStream created!\n");
+
+    // Create our buffer for custom lavf IO
+    uint8_t *lavf_iobuffer = (uint8_t *)av_malloc(CLI_TEST_BUFFER_SIZE);
+    if (!lavf_iobuffer) {
+        return E_OUTOFMEMORY;
+    }
+
+    // Create our custom IO context
+    lavf_context->pb = avio_alloc_context(lavf_iobuffer, CLI_TEST_BUFFER_SIZE, 0,
+                                          istream, read_packet, NULL, seek);
+    if (!lavf_context->pb) {
+        return E_OUTOFMEMORY;
+    }
+
     // Try opening the input
-    int ret = avformat_open_input(&lavf_context, argv[1], NULL, NULL);
+    int ret = avformat_open_input(&lavf_context, "fake_video_name", NULL, NULL);
     if (ret < 0) {
         fprintf(stderr, "Failed to open input file :<\n");
         return 1;
