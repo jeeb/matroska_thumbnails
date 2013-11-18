@@ -139,15 +139,15 @@ static int64_t seek(void *opaque, int64_t offset, int whence)
         }
         break;
     case SEEK_SET:
-        fprintf(stderr, "IStream IO Seek: Seek mode set to SET\n");
+        fprintf(stderr, "IStreamIO Seek: Seek mode set to SET\n");
         seekmode = STREAM_SEEK_SET;
         break;
     case SEEK_CUR:
-        fprintf(stderr, "IStream IO Seek: Seek mode set to CUR\n");
+        fprintf(stderr, "IStreamIO Seek: Seek mode set to CUR\n");
         seekmode = STREAM_SEEK_CUR;
         break;
     case SEEK_END:
-        fprintf(stderr, "IStream IO Seek: Seek mode set to END\n");
+        fprintf(stderr, "IStreamIO Seek: Seek mode set to END\n");
         seekmode = STREAM_SEEK_END;
         break;
     default:
