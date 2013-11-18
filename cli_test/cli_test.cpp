@@ -167,6 +167,29 @@ static int64_t seek(void *opaque, int64_t offset, int whence)
     return pos_after_seek.QuadPart - pos_before_seek.QuadPart;
 }
 
+// Converts yer usual char string to MS Widechar
+// Returns a nullptr if fails, the buffer for widechar otherwise
+wchar_t* locale_to_wchar(char *input_string) {
+    const char *cs = input_string;
+
+    size_t wn = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, cs, -1, NULL, 0);
+    if (wn == size_t(-1)) {
+        return nullptr;
+    }
+
+    wchar_t *buf = new wchar_t[wn + 1]();  // value-initialize to 0 (see below)
+    if (!buf) {
+        return nullptr;
+    }
+
+    wn = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, cs, -1, buf, wn + 1);
+    if (wn == size_t(-1)) {
+        return nullptr;
+    }
+
+    return buf;
+}
+
 #define CLI_TEST_BUFFER_SIZE 8192
 
 int main(int argc, char **argv)
@@ -192,7 +215,12 @@ int main(int argc, char **argv)
     fprintf(stderr, "Success: lavf context\n");
 
     // We need a wchar version of the input file name for IStream
-    wchar_t *wide_input_file = L"lav_tep_jitter.vob";
+    wchar_t *wide_input_file = locale_to_wchar(argv[1]);
+    if (!wide_input_file) {
+        fprintf(stderr, "Failed to convert %s to a wide string :<", argv[1]);
+        return 1;
+    }
+
     fwprintf(stderr, L"Wide input file: %ls\n", wide_input_file);
 
     // Create an IStream that doesn't create files
