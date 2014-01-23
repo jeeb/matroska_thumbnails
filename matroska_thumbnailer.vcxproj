@@ -47,7 +47,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>avformat-lavfthumb.lib;avutil-lavfthumb.lib;avcodec-lavfthumb.lib;swscale-lavfthumb.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>avformat-lavfthumb.lib;avutil-lavfthumb.lib;avcodec-lavfthumb.lib;swscale-lavfthumb.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -67,6 +67,7 @@
   <ItemGroup>
     <ClCompile Include="src\istream_wrapper.c" />
     <ClCompile Include="src\matroska_thumbnailer.cpp" />
+    <ClCompile Include="src\dll.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\istream_wrapper.h" />
