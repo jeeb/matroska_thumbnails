@@ -65,7 +65,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\istream_wrapper.c" />
     <ClCompile Include="src\matroska_thumbnailer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\istream_wrapper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
