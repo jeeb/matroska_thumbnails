@@ -11,7 +11,7 @@
 #define inline __inline
 #include <libavformat/avio.h>
 
-int read_packet(void *opaque, uint8_t *buf, int buf_size)
+int istream_read_packet(void *opaque, uint8_t *buf, int buf_size)
 {
     IStream *istream = (IStream *)opaque;
 
@@ -28,7 +28,7 @@ int read_packet(void *opaque, uint8_t *buf, int buf_size)
     return read_bytes;
 }
 
-int64_t seek(void *opaque, int64_t offset, int whence)
+int64_t istream_seek(void *opaque, int64_t offset, int whence)
 {
     IStream *istream = (IStream *)opaque;
 
