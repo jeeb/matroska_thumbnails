@@ -97,7 +97,6 @@ IFACEMETHODIMP MatroskaThumbnailer::Initialize(IStream *pStream, DWORD grfMode)
 
 IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_ALPHATYPE *pdwAlpha)
 {
-    HRESULT hr = E_FAIL;
     *phbmp     = nullptr;
     *pdwAlpha  = WTSAT_UNKNOWN;
 
