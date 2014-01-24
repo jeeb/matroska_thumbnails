@@ -97,8 +97,18 @@ IFACEMETHODIMP MatroskaThumbnailer::Initialize(IStream *pStream, DWORD)
 
 IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_ALPHATYPE *pdwAlpha)
 {
+    HRESULT hr = E_FAIL;
     *phbmp     = nullptr;
     *pdwAlpha  = WTSAT_UNKNOWN;
+
+    // Initialize a local variable
+    AVRational guessed_sar;
+    guessed_sar.den = 0;
+    guessed_sar.num = 0;
+
+    // Initialize the local context pointers
+    AVCodecContext *decoder_context = nullptr;
+    SwsContext     *swscale_context = nullptr;
 
     // Register all formats etc.
     av_register_all();
@@ -107,34 +117,39 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     AVFormatContext *lavf_context = avformat_alloc_context();
     if (!lavf_context) {
         fprintf(stderr, "Failed to create lavf context :<\n");
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Create our buffer for custom lavf IO
     uint8_t *lavf_iobuffer = (uint8_t *)av_malloc(TEST_BUFFER_SIZE);
     if (!lavf_iobuffer) {
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Create our custom IO context
     lavf_context->pb = avio_alloc_context(lavf_iobuffer, TEST_BUFFER_SIZE, 0,
                                           istream, istream_read_packet, NULL, istream_seek);
     if (!lavf_context->pb) {
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Try opening the input
     int ret = avformat_open_input(&lavf_context, "fake_video_name", NULL, NULL);
     if (ret < 0) {
         fprintf(stderr, "Failed to open input file :<\n");
-        return E_FAIL;
+        hr = E_UNEXPECTED;
+        goto cleanup;
     }
 
     // Try finding out what's inside the input
     ret = avformat_find_stream_info(lavf_context, NULL);
     if (ret < 0) {
         fprintf(stderr, "Failed to find out what's inside the file :<\n");
-        return E_FAIL;
+        hr = E_UNEXPECTED;
+        goto cleanup;
     }
 
     // Try looking for the "best" video stream in file
@@ -142,33 +157,37 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     ret = av_find_best_stream(lavf_context, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, NULL);
     if (ret < 0) {
         fprintf(stderr, "Failed to find the best video stream :<\n");
-        return E_FAIL;
+        hr = E_UNEXPECTED;
+        goto cleanup;
     }
 
     // If no decoder was found, error out
     if (!decoder) {
         fprintf(stderr, "Failed to find a decoder for the best video stream :<\n");
-        return E_FAIL;
+        hr = E_UNEXPECTED;
+        goto cleanup;
     }
 
     // Gather information on the found stream
     int stream_index = ret;
     AVStream *stream = lavf_context->streams[stream_index];
-    AVCodecContext *decoder_context = stream->codec;
+    decoder_context = stream->codec;
 
     // We want to try them refcounted frames!
     AVDictionary *avdict = nullptr;
     ret = av_dict_set(&avdict, "refcounted_frames", "1", 0);
     if (ret < 0) {
         fprintf(stderr, "Failed to create an AVDict with the refcounted_frames set to 1\n");
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Open ze decoder!
     ret = avcodec_open2(decoder_context, decoder, &avdict);
     if (ret < 0) {
         fprintf(stderr, "Failed to open video decoder\n");
-        return E_FAIL;
+        hr = E_FAIL;
+        goto cleanup;
     }
 
     // Create an AVFrame
@@ -176,7 +195,8 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     frame = av_frame_alloc();
     if (!frame) {
         fprintf(stderr, "Failed to allocate AVFrame :<\n");
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Create and init an AVPacket
@@ -193,7 +213,8 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
         ret = av_read_frame(lavf_context, &packet);
         if (ret < 0) {
             fprintf(stderr, "Failed to read a frame of data from the input :<\n");
-            return E_FAIL;
+            hr = E_UNEXPECTED;
+            goto cleanup;
         }
 
         fprintf(stderr, "Success: A frame of data has been read from the input\n");
@@ -203,7 +224,8 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
             ret = avcodec_decode_video2(decoder_context, frame, &can_has_picture, &packet);
             if (ret < 0) {
                 fprintf(stderr, "Failed to decode video :<\n");
-                return E_FAIL;
+                hr = E_UNEXPECTED;
+                goto cleanup;
             }
 
             fprintf(stderr, "Success: A frame of data has been decoded\n");
@@ -213,7 +235,7 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     }
 
     fprintf(stderr, "Success: A whole picture has been decoded\n");
-    AVRational guessed_sar = av_guess_sample_aspect_ratio(lavf_context, stream, frame);
+    guessed_sar = av_guess_sample_aspect_ratio(lavf_context, stream, frame);
     fprintf(stderr, "Stream SAR: %d:%d\n", frame->sample_aspect_ratio.num, frame->sample_aspect_ratio.den);
     fprintf(stderr, "Guessed SAR: %d:%d\n", guessed_sar.num, guessed_sar.den);
 
@@ -287,7 +309,8 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     *phbmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, (void **)dst_data, NULL, 0);
     if (!*phbmp || !dst_data) {
         fprintf(stderr, "Failed to create the HBITMAP :<\n");
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     if ((long)*phbmp == ERROR_INVALID_PARAMETER) {
@@ -296,12 +319,13 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
 
 
     // Create the swscale context
-    SwsContext *swscale_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format,
+    swscale_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format,
                                                  dst_width, dst_height, AV_PIX_FMT_BGRA,
                                                  SWS_BICUBIC, NULL, NULL, NULL);
     if (!swscale_context) {
         fprintf(stderr, "Failed to create the swscale context for the YCbCr->RGB conversion\n");
-        return E_OUTOFMEMORY;
+        hr = E_OUTOFMEMORY;
+        goto cleanup;
     }
 
     // Convert!
@@ -309,11 +333,24 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
                     frame->height, dst_data, dst_linesize);
     if (ret != dst_height) {
         fprintf(stderr, "Failed to gain as much height as with the input when scaling\n");
-        return E_FAIL;
+        hr = E_UNEXPECTED;
+        goto cleanup;
     }
 
     // We don't need the stinking screen
     ReleaseDC(NULL, hdc);
 
-    return S_OK;
+    // Everything seems OK, folks!
+    hr = S_OK;
+
+cleanup:
+    // Clean it all up, boys!
+    sws_freeContext(swscale_context);
+    av_frame_free(&frame);
+    av_free_packet(&packet);
+    avcodec_close(decoder_context);
+    avformat_close_input(&lavf_context);
+    avformat_free_context(lavf_context);
+
+    return hr;
 }
