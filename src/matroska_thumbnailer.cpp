@@ -221,6 +221,12 @@ IFACEMETHODIMP MatroskaThumbnailer::GetThumbnail(UINT cx, HBITMAP *phbmp, WTS_AL
     int dst_width = 0;
     int dst_height = 0;
 
+    // If the guessed SAR somehow ends up zero somewhere, we reset to 1:1
+    if (guessed_sar.den == 0 || guessed_sar.num == 0) {
+        guessed_sar.den = 1;
+        guessed_sar.num = 1;
+    }
+
     // Calculate the aspect ratio'ized size for the output picture
     if (guessed_sar.num > guessed_sar.den) {
         dst_width = (frame->width * guessed_sar.num) / guessed_sar.den;
