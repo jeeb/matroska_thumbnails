@@ -81,7 +81,7 @@ HRESULT MatroskaThumbnailer_CreateInstance(REFIID riid, void **ppv)
 }
 
 
-IFACEMETHODIMP MatroskaThumbnailer::Initialize(IStream *pStream, DWORD grfMode)
+IFACEMETHODIMP MatroskaThumbnailer::Initialize(IStream *pStream, DWORD)
 {
     HRESULT hr = E_UNEXPECTED;
 
